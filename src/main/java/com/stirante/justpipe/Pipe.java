@@ -2,6 +2,7 @@ package com.stirante.justpipe;
 
 import java.io.*;
 import java.util.Arrays;
+import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -52,17 +53,12 @@ public class Pipe {
         return this;
     }
 
-    public Stream<Pipe> split(Function<byte[], byte[][]> processor) throws IOException {
+    public Stream<Pipe> split(Function<byte[], List<byte[]>> processor) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         pipe(in, baos);
         in.close();
-        byte[][] bytes = processor.apply(baos.toByteArray());
-        Pipe[] result = new Pipe[bytes.length];
-        for (int i = 0; i < bytes.length; i++) {
-            byte[] b = bytes[i];
-            result[i] = new Pipe(new ByteArrayInputStream(b));
-        }
-        return Arrays.stream(result);
+        List<byte[]> bytes = processor.apply(baos.toByteArray());
+        return bytes.stream().map(b -> new Pipe(new ByteArrayInputStream(b)));
     }
 
     public static Pipe from(InputStream in) {
