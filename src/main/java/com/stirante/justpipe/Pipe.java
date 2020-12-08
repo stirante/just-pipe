@@ -1,17 +1,26 @@
 package com.stirante.justpipe;
 
+import com.stirante.justpipe.exception.RuntimeIOException;
+import com.stirante.justpipe.function.IOFunction;
+
 import java.io.*;
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Map;
 import java.util.stream.Stream;
 
 public class Pipe {
 
     private InputStream in;
+    private final Map<String, Object> metadata;
+
+    public Pipe(InputStream in, Map<String, Object> metadata) {
+        this.in = in;
+        this.metadata = metadata;
+    }
 
     public Pipe(InputStream in) {
-        this.in = in;
+        this(in, new HashMap<>());
     }
 
     public void to(OutputStream out) throws IOException {
@@ -45,7 +54,7 @@ public class Pipe {
         to(out, true);
     }
 
-    public Pipe through(Function<byte[], byte[]> processor) throws IOException {
+    public Pipe through(IOFunction<byte[], byte[]> processor) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         pipe(in, baos);
         in.close();
@@ -53,12 +62,30 @@ public class Pipe {
         return this;
     }
 
-    public Stream<Pipe> split(Function<byte[], List<byte[]>> processor) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        pipe(in, baos);
-        in.close();
-        List<byte[]> bytes = processor.apply(baos.toByteArray());
-        return bytes.stream().map(b -> new Pipe(new ByteArrayInputStream(b)));
+    public Stream<Pipe> split(IOFunction<Pipe, List<Pipe>> processor) throws IOException {
+        List<Pipe> bytes = processor.apply(this);
+        return bytes.stream().peek(pipe -> pipe.copyMetadata(Pipe.this));
+    }
+
+    private void copyMetadata(Pipe pipe) {
+        for (String s : pipe.metadata.keySet()) {
+            if (!metadata.containsKey(s)) {
+                metadata.put(s, pipe.metadata.get(s));
+            }
+        }
+    }
+
+    public Pipe with(String key, Object value) {
+        metadata.put(key, value);
+        return this;
+    }
+
+    public Object get(String key) {
+        return metadata.get(key);
+    }
+
+    public boolean has(String key) {
+        return metadata.containsKey(key);
     }
 
     public static Pipe from(InputStream in) {
@@ -87,30 +114,18 @@ public class Pipe {
 
     /**
      * Returns string representation of the input.
-     * Due to conflict with toString method, this method had to be called getString.
-     * Note: This method reads all input and closes it
-     *
-     * @return string representation of the input
-     */
-    public String getString() throws IOException {
-        StringWriter sw = new StringWriter();
-        to(sw);
-        return sw.toString();
-    }
-
-    /**
-     * Returns string representation of the input.
      * Note: This method reads all input and closes it
      *
      * @return string representation of the input
      */
     public String toString() {
         try {
-            return getString();
+            StringWriter sw = new StringWriter();
+            to(sw);
+            return sw.toString();
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeIOException(e);
         }
-        return "";
     }
 
     /**
