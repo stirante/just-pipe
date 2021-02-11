@@ -4,6 +4,7 @@ import com.stirante.justpipe.exception.RuntimeIOException;
 import com.stirante.justpipe.function.IOFunction;
 
 import java.io.*;
+import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,18 @@ public class Pipe {
             out.flush();
             out.close();
         }
+    }
+
+    public <T> T to(IOFunction<Pipe, T> converter, boolean close) throws IOException {
+        T result = converter.apply(this);
+        if (close) {
+            in.close();
+        }
+        return result;
+    }
+
+    public <T> T to(IOFunction<Pipe, T> converter) throws IOException {
+        return to(converter, true);
     }
 
     public void to(File out, boolean close) throws IOException {
@@ -86,6 +99,10 @@ public class Pipe {
 
     public boolean has(String key) {
         return metadata.containsKey(key);
+    }
+
+    public static Pipe from(URL url) throws IOException {
+        return new Pipe(url.openStream());
     }
 
     public static Pipe from(InputStream in) {
