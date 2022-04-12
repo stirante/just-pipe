@@ -5,6 +5,7 @@ import com.stirante.justpipe.function.IOFunction;
 
 import java.io.*;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,12 +114,28 @@ public class Pipe {
         return from(new ByteArrayInputStream(in.getBytes()));
     }
 
+    public static Pipe from(String in, Charset charset) {
+        return from(new ByteArrayInputStream(in.getBytes(charset)));
+    }
+
     public static Pipe from(File in) throws IOException {
         return from(new FileInputStream(in));
     }
 
     public static Pipe from(byte[] in) {
         return from(new ByteArrayInputStream(in));
+    }
+
+    public static Pipe from(Reader in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        Writer writer = new OutputStreamWriter(out);
+        char[] buffer = new char[8192];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            writer.write(buffer, 0, read);
+        }
+        writer.flush();
+        return from(out.toByteArray());
     }
 
     private static void pipe(InputStream in, OutputStream out) throws IOException {
@@ -155,6 +172,25 @@ public class Pipe {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         to(baos);
         return baos.toByteArray();
+    }
+
+    /**
+     * Returns InputStream of the input.
+     * Note: This method reads all input and closes it
+     *
+     * @return InputStream of the input
+     */
+    public InputStream toInputStream() throws IOException {
+        return new ByteArrayInputStream(toByteArray());
+    }
+
+    /**
+     * Returns underlying InputStream.
+     *
+     * @return underlying InputStream
+     */
+    public InputStream getInputStream() throws IOException {
+        return in;
     }
 
 }
